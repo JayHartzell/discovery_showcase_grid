@@ -5,14 +5,39 @@
     <meta charset="utf-8" />
     <title>&lt;my-element> Demo</title>
     <script type="module" src="../search-carousel.js"></script>
+<style>
+    /* Customize the search carousel appearance */
+    search-carousel {
+      --search-carousel-title-color: #2c3e50;
+      --search-carousel-title-size: 2rem;
+      --search-carousel-title-font: 'Georgia, serif';
+      --search-carousel-title-weight: 600;
+      --search-carousel-gap: 25px;
+      --search-carousel-min-card-width: 220px;
+      --search-carousel-padding: 30px;
+    }
+    
+    /* Customize the individual cards */
+    pnx-card {
+      --pnx-card-title-color: #34495e;
+      --pnx-card-title-size: 14px;
+      --pnx-card-title-font: 'Arial, sans-serif';
+      --pnx-card-description-color: #7f8c8d;
+      --pnx-card-image-height: 240px;
+      --pnx-card-image-fit: cover;
+      --pnx-card-border-radius: 8px;
+      --pnx-card-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      --pnx-card-hover-shadow: 0 8px 16px rgba(0,0,0,0.2);
+      --pnx-card-background: #ffffff;
+      --pnx-card-padding: 12px;
+    }
+  </style>
+  </head>  <body>
 
-  </head>
-  <body>
+    <search-carousel titleText="San Elijo Newbook Collection" titleLink="https://www.google.com" defaultThumbnailUrl="https://hub.miracosta.edu/library/primoimages/default.png"
+          searchUrl="https://caccl-miracosta.primo.exlibrisgroup.com/primaws/rest/external/pnxs?acTriggered=false&disableCache=false&getMore=0&inst=01CACCL_MIRACOSTA&isCDSearch=true&lang=en&limit=10&newspapersActive=false&newspapersSearch=false&offset=0&q=cdparentid,exact,8199591370005274&qExclude=&qInclude=&refEntryActive=false&rtaLinks=true&scope=browse_search&skipDelivery=Y&tab=Everything&vid=01CACCL_MIRACOSTA:MIRACOSTA">
+    </search-carousel>
 
-  <search-carousel titleText="test!" titleLink="https://www.google.com" defaultThumbnailUrl="../dist/default.png"
-          searchUrl="http://il-urmsand01.corp.exlibrisgroup.com:1801/primaws/rest/external/pnxs?acTriggered=false&blendFacetsSeparately=false&citationTrailFilterByAvailability=true&disableCache=false&getMore=0&inst=TRAINING_1_INST&isCDSearch=false&lang=en&limit=10&newspapersActive=false&newspapersSearch=false&offset=0&otbRanking=false&pcAvailability=false&q=any,contains,history&qExclude=&qInclude=&rapido=false&refEntryActive=false&rtaLinks=true&scope=MyInst_and_CI&searchInFulltextUserSelection=true&skipDelivery=N&sort=rank&tab=Everything&vid=TRAINING_1_INST:Auto1">
-
-</search-carousel>
   </body>
 
 </html>

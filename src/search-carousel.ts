@@ -1,10 +1,7 @@
-import {html, LitElement} from "lit";
-import {until} from 'lit-html/directives/until.js';
-import {customElement, property, state} from "lit/decorators.js";
-import {register} from 'swiper/element/bundle';
-import {PnxCard} from "./pnx-card";
-
-register();
+import {LitElement, html, css} from 'lit';
+import {customElement, property, state} from 'lit/decorators.js';
+import {until} from 'lit/directives/until.js';
+import './pnx-card.js'; // Ensures PnxCard is defined
 
 @customElement('search-carousel')
 export class SearchCarousel extends LitElement {
@@ -21,16 +18,82 @@ export class SearchCarousel extends LitElement {
     private tab!: string | null;
     private institution!: string | null;
     private host!: string | null;
-    private originalAriaLabelList: string[] = [];
-    private firstLoad = true;
-    private isNeedToChangeAriaLabel = false;
 
     constructor() {
         super();
-        PnxCard;
-        //This is for the bundler so it packages the other components with this one
-
     }
+
+    static override styles = css`
+      search-carousel {
+        display: block;
+        max-width: var(--search-carousel-max-width, 1200px);
+        margin: 0 auto;
+        font-size: var(--search-carousel-font-size, 14px);
+        color: var(--search-carousel-text-color, #000);
+      }
+
+      .gallery-container {
+        padding: var(--search-carousel-padding, 20px);
+      }
+
+      .gallery-container a {
+        text-decoration: none;
+        color: var(--search-carousel-link-color, black);
+      }
+
+      .gallery-container a:hover, .gallery-container a:focus {
+        text-decoration: underline;
+      }
+
+      .gallery-container h2 {
+        color: var(--search-carousel-title-color, #000);
+        font-size: var(--search-carousel-title-size, 1.5em);
+        font-family: var(--search-carousel-title-font, inherit);
+        font-weight: var(--search-carousel-title-weight, bold);
+        text-align: var(--search-carousel-title-align, center);
+        margin: var(--search-carousel-title-margin, 0 0 1em 0);
+        line-height: var(--search-carousel-title-line-height, 1.2);
+      }
+
+      /* Specific styling for title links - inherits h2 color */
+      .gallery-container h2 a {
+        color: inherit; /* Inherits the h2 color */
+        text-decoration: none;
+      }
+
+      .gallery-container h2 a:hover, 
+      .gallery-container h2 a:focus {
+        color: var(--search-carousel-title-hover-color, var(--search-carousel-title-color, #000));
+        text-decoration: var(--search-carousel-title-hover-decoration, underline);
+      }
+
+      .grid-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(var(--search-carousel-min-card-width, 200px), 1fr));
+        gap: var(--search-carousel-gap, 20px);
+      }
+
+      /* Screen reader only text for additional context */
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+      }
+
+      /* Responsive adjustments for the grid */
+      @media (max-width: 600px) {
+        .grid-container {
+          grid-template-columns: repeat(auto-fill, minmax(var(--search-carousel-min-card-width-mobile, 150px), 1fr));
+          gap: var(--search-carousel-gap-mobile, 15px);
+        }
+      }
+    `;
 
     override connectedCallback() {
         super.connectedCallback();
@@ -40,22 +103,22 @@ export class SearchCarousel extends LitElement {
     async performQuery() {
         try {
             const response = await fetch(this.searchUrl);
-            this.data = response.json();
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            this.data = response.json(); // This returns a promise
         } catch (error) {
+            console.error("Failed to perform query:", error);
+            this.data = Promise.resolve({ docs: [] }); // Ensure data is a resolved promise with empty docs on error
         }
-
-
-    }
-
-    //disables shadow root for lit element otherwise swiper styling doesn't work properly
-    protected override createRenderRoot() {
-        return this;
-    }
-
-
+    }    // Removed createRenderRoot override to allow shadow DOM and proper CSS scoping
     override render() {
+        console.log('SearchCarousel render called, data:', this.data);
         if (!this.data) {
-            return html``;
+            return html`
+                <div class="gallery-container">
+                    <p role="status" aria-live="polite">Loading search results...</p>
+                </div>`;
         }
         const parsedUrl = new URL(this.searchUrl);
         this.host = parsedUrl.host;
@@ -67,255 +130,75 @@ export class SearchCarousel extends LitElement {
 
         const titleHtml = this.getTitleHtml();
 
+        const docsPromise = this.data.then((data: any) => {
+            console.log('Data received:', data);
+            if (!data || !data.docs || data.docs.length === 0) {
+                return html`
+                    <p role="status" aria-live="polite">
+                        No search results found. Try different search terms or check your search criteria.
+                    </p>`;
+            }
+            
+            const totalResults = data.docs.length;
+            const resultsAnnouncement = `Showing ${totalResults} search result${totalResults === 1 ? '' : 's'}`;
+            
+            return html`
+                <div class="sr-only" role="status" aria-live="polite" aria-atomic="true">
+                    ${resultsAnnouncement}
+                </div>
+                ${data.docs.map((doc: any, index: number) =>
+                    html`
+                        <pnx-card 
+                            .doc="${doc}" 
+                            .host="${this.host ?? ''}" 
+                            .institution="${this.institution}"
+                            .vid="${this.viewId}"
+                            .language="${this.language}" 
+                            .scope="${this.scope}"
+                            .tab="${this.tab}" 
+                            .defaultThumbnailUrl="${this.defaultThumbnailUrl}"
+                            role="gridcell"
+                            aria-posinset="${index + 1}"
+                            aria-setsize="${totalResults}">
+                        </pnx-card>
+                    `)}`;
+        }).catch((error: any) => {
+            console.error("Error processing data for rendering:", error);
+            return html`
+                <p role="alert" aria-live="assertive">
+                    Error loading search results. Please try refreshing the page or contact support if the problem persists.
+                </p>`;
+        });
 
-        const docsPromise = this.data.then((data: any) => data.docs.map((doc: any) =>
-            html`
-                <swiper-slide .doc="${doc}">
-                    <pnx-card .doc="${doc}" .host="${this.host}" .institution="${this.institution}"
-                              .vid="${this.viewId}"
-                              .language="${this.language}" .scope="${this.scope}"
-                              .tab="${this.tab}" .defaultThumbnailUrl="${this.defaultThumbnailUrl}">
-                    </pnx-card>
-                </swiper-slide>`))
-
+        console.log('Rendering grid container');
         return html`
-
             <div class="gallery-container">
                 ${titleHtml}
-                <button @click="${this.activateChangeAriaLabel}" class="swiper-button-prev"></button>
-                <swiper-container init="false" class="swiper">
-                    ${until(docsPromise, ``)}
-                </swiper-container>
-                <!-- Navigation buttons -->
-                <button @click="${this.activateChangeAriaLabel}" class="swiper-button-next"></button>
-                <div  @click="${this.activateChangeAriaLabel}" class="swiper-pagination"></div>
+                <div 
+                    class="grid-container"
+                    role="grid"
+                    aria-label="${this.titleText ? `Search results for ${this.titleText}` : 'Search results'}"
+                    aria-live="polite">
+                    ${until(docsPromise, html`
+                        <p role="status" aria-live="polite">
+                            Loading search results, please wait...
+                        </p>`)}
+                </div>
             </div>
         `;
     }
 
-    protected override updated() {
-        const swiperEl = this.renderRoot.querySelector('swiper-container') as HTMLElement & { swiper: any };
-        const nextEl = this.renderRoot.querySelector('.swiper-button-next');
-        const prevEl = this.renderRoot.querySelector('.swiper-button-prev');
-        const paginationEl = this.renderRoot.querySelector('.swiper-pagination');
-        if (!swiperEl) {
-            return;
-        }
+    // Removed updated() method as it was for Swiper initialization
 
-
-        const params = {
-            // inject same style to shadow DOM
-            effect: "coverflow",
-            grabCursor: true,
-            centeredSlides: true,
-            // slidesPerView: "4",
-            spaceBetween: 70,
-            slidesPerView: "auto",
-            // loop: true,
-            coverflowEffect: {
-                rotate: 25,
-                stretch: 0,
-                depth: 100,
-                modifier: 1,
-                slideShadows: false,
-            },
-            pagination: {
-                el: paginationEl,
-                clickable: true
-            },
-            // Responsive breakpoints
-            breakpoints: {
-                360: {
-                    slidesPerView: 2,
-                    spaceBetween: 30,
-                },
-                640: {
-                    slidesPerView: 3,
-                    spaceBetween: 100,
-                },
-                768: {
-                    slidesPerView: 3,
-                    spaceBetween: 130,
-                },
-                1024: {
-                    slidesPerView: "auto",
-                    spaceBetween: 70,
-                },
-            },
-            // Navigation arrows
-            navigation: {
-                nextEl: nextEl,
-                prevEl: prevEl,
-            },
-            // Accessibility
-            a11y: {
-                prevSlideMessage: 'Previous slide',
-                nextSlideMessage: 'Next slide',
-                firstSlideMessage: 'This is the first slide',
-                lastSlideMessage: 'This is the last slide'
-            },
-            on: {
-                // This event triggers when the slide changes
-                slideChange: () => {
-                    if (this.isNeedToChangeAriaLabel) {
-                        const slides = swiperEl.querySelectorAll('swiper-slide') as NodeListOf<HTMLElement>;
-                        const activeSlide = slides[swiperEl.swiper.activeIndex];
-
-                        // Reset all slides' aria-live to 'polite'
-                        slides.forEach((slide: HTMLElement, index: number) => {
-
-                            // This is keep the original default aria-label
-                            if (this.firstLoad) {
-                                const currentLabel = slide.getAttribute('aria-label') || '';
-                                this.originalAriaLabelList.push(currentLabel);
-                            }
-
-                            // Get the current aria-label
-                            slide.setAttribute('aria-live', 'off');
-                            if (index !== swiperEl.swiper.activeIndex) {
-                                slide.setAttribute('aria-label', this.originalAriaLabelList[index]);
-                            }
-                        });
-
-                        // This boolean is for the first initialization of original aria-label list
-                        this.firstLoad = false;
-
-                        // Set the active slide's aria-live to 'assertive'
-                        if (activeSlide) {
-                            activeSlide.setAttribute('aria-live', 'assertive');
-
-                            // Get the current aria-label
-                            const currentLabel = activeSlide.getAttribute('aria-label') || '';
-
-                            // Append dynamic content, e.g., the current slide number or a custom message
-                            const additionalText = (activeSlide as any)?.doc?.pnx?.display?.title?.[0] + (activeSlide as any)?.doc?.pnx?.display?.publisher?.[0] ?? '';
-
-                            const labelToReturn = (currentLabel.includes(additionalText)) ? (`${currentLabel}`) : (`${currentLabel} - ${additionalText}`);
-
-                            // Update the aria-label attribute with the new text
-                            activeSlide.setAttribute('aria-label', labelToReturn);
-                        }
-
-                        this.isNeedToChangeAriaLabel = false;
-                    }
-                }
-            },
-            injectStyles: [
-                `
-                     search-carousel {
-                        position: relative;
-                        height: 100%;
-                        display: block;
-                        font-size: 14px;
-                        color: #000;
-                        padding: 0;
-                        --width-param: 700px;
-                        max-width: var(--width-param);
-                        margin: 0 auto;
-                     }
-                    .gallery-container {
-                        padding: 20px;
-                    }
-                    
-                    .gallery-container a {
-                        text-decoration: none;
-                        color: black;
-                    }
-                    
-                    .gallery-container a:hover, .gallery-container a:focus {
-                        text-decoration: underline;
-                    }
-                    
-                    .gallery-container h2 {
-                        text-align: center;
-                    }
-                    
-                    .swiper {
-                        max-width: var(--width-param);
-                        margin-block-end: 1em;
-                    }
-                    
-                    swiper-slide {
-                        background-position: center;
-                        background-size: cover;
-                        width: calc(0.2 * var(--width-param));
-                        text-decoration: none;
-                    }
-                    
-                    swiper-slide:hover, swiper-slide:focus {
-                        text-decoration: underline;
-                    }
-                    
-                    .swiper-slide img {
-                        display: block;
-                    }
-                    
-                    
-                    .gallery-container .swiper-button-prev, .gallery-container .swiper-button-next {
-                        color: black;
-                        background-color: transparent;
-                        border: none;
-                        top: 50%;
-                        padding: 0;
-                    }
-                    .gallery-container .swiper-button-next {
-                        margin-right: -2.5em;
-                    }
-
-                    .gallery-container .swiper-button-prev {
-                        margin-left: -2.5em;
-                    }
-                    @media only screen and (max-width: 360px) {
-                        .gallery-container .swiper-button-next {
-                            margin-inline-end: -13px;
-                        }
-                        .gallery-container .swiper-button-prev {
-                            margin-inline-start: -13px;
-                        }
-                        /*.swiper-button-prev:focus:not(:active), .swiper-button-next:focus:not(:active) {
-                        box-shadow: 0 0 0 2px black;
-                        }*/
-                    }
-                    
-                    /*.swiper-button-prev:focus, .swiper-button-next:focus {
-                        // box-shadow: 0 0 0 2px black;
-                    }*/
-                    
-                    .swiper-button-prev, .swiper-button-next {
-                        &:hover,&:focus {
-                            background-color: black;
-                            &:after {
-                            color: white;
-                            }
-                        }
-                    }
-                    
-                    .swiper-pagination .swiper-pagination-bullet-active {
-                        background-color: black;
-                    }
-                    
-                    .swiper-pagination-horizontalswiper-pagination-bullets .swiper-pagination-bullet{
-                        --swiper-pagination-bullet-horizontal-gap: 8px;
-                    }
-            `,
-            ],
-
-        }
-        Object.assign(swiperEl, params);
-        // @ts-ignore
-        swiperEl.initialize();
-    }
-
-    private activateChangeAriaLabel() {
-        this.isNeedToChangeAriaLabel = true;
-    }
+    // Removed activateChangeAriaLabel() method
 
     private getTitleHtml() {
         if (this.titleText) {
-            return this.titleLink ? html`<h2><a target="_blank" href="${this.titleLink}">${this.titleText}</a>
-            </h2>` : html`<h2>${this.titleText}</h2>`
+            if (this.titleLink) {
+                return html`<h2><a href="${this.titleLink}">${this.titleText}</a></h2>`;
+            }
+            return html`<h2>${this.titleText}</h2>`;
         }
         return html``;
     }
-
 }

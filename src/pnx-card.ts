@@ -14,15 +14,15 @@ export class PnxCard extends LitElement {
     @property()
     host!: string;
     @property()
-    institution!: string;
+    institution!: string | null; // Allow null
     @property()
-    vid!: string;
+    vid!: string | null; // Allow null
     @property()
-    language!: string;
+    language!: string | null; // Allow null
     @property()
-    scope!: string;
+    scope!: string | null; // Allow null
     @property()
-    tab!: string;
+    tab!: string | null; // Allow null
     @property()
     defaultThumbnailUrl: string | undefined;
     private almaDThumbnailBaseURL!: string;
@@ -30,22 +30,133 @@ export class PnxCard extends LitElement {
     override render() {
         this.almaDThumbnailBaseURL = this.getAlmaDThumbnailBaseUrl()
         const img = this.getThumbnailLinks();
-        const imagePlaceHolder= html`<div style="background-color: ${this.getRandomColor()}" 
-                                          class="image-place-holder"></div>`;
+        
+        // Extract document metadata for accessibility
+        const title = this.getDocumentTitle();
+        const author = this.getDocumentAuthor();
+        const altText = this.generateImageAltText(title, author);
+        const linkAriaLabel = this.generateLinkAriaLabel(title, author);
+        
+        const imagePlaceHolder = html`<div 
+            style="background-color: ${this.getRandomColor()}" 
+            class="image-place-holder"
+            role="img"
+            aria-label="${altText}">
+            <span aria-hidden="true">📚</span>
+        </div>`;
+        
         const imgPromise = img.then(url => {
             console.log(`getImageUrl returned ${url}`)
-            return html`<img src=${url} alt="">`
+            return html`<img src=${url} alt="${altText}">`
         }).catch(() => imagePlaceHolder); //on error or no thumbnail render the image placeholder
+        
+        const deeplink = this.getDeeplink();
         return html`
-            <a  href="${this.getDeeplink()}" target="_blank" aria-label="">
+            <a  
+                href="${deeplink ? deeplink : '#'}" 
+                target="_blank" 
+                aria-label="${linkAriaLabel}"
+                role="link">
                 ${until(imgPromise, imagePlaceHolder)}
-                <div class="record-details">
-                    <h3>${this?.doc?.pnx?.display?.title?.[0] ?? ''}</h3>
-                    <span>${this?.doc?.pnx?.display?.publisher?.[0] ?? ''}</span>
-                </div>
             </a>
             
         `
+    }
+
+    /**
+     * Extract the document title from various possible fields
+     */
+    private getDocumentTitle(): string {
+        const display = this.doc?.pnx?.display;
+        const addata = this.doc?.pnx?.addata;
+        
+        // Try multiple title fields in order of preference
+        return display?.title?.[0] || 
+               addata?.btitle?.[0] || 
+               addata?.addtitle?.[0] || 
+               display?.source?.[0] || 
+               'Document';
+    }
+
+    /**
+     * Extract the document author from various possible fields
+     */
+    private getDocumentAuthor(): string {
+        const display = this.doc?.pnx?.display;
+        const addata = this.doc?.pnx?.addata;
+        
+        // Try multiple author fields in order of preference
+        const author = display?.creator?.[0] || 
+                      addata?.au?.[0] || 
+                      addata?.aulast?.[0];
+        
+        if (author) {
+            // Clean up author name (remove $$ markup and extra formatting)
+            return author.replace(/\$\$[A-Z].*?(?=\$\$|$)/g, '').replace(/\$\$.*$/, '').trim();
+        }
+        
+        return '';
+    }
+
+    /**
+     * Generate descriptive alt text for images
+     */
+    private generateImageAltText(title: string, author: string): string {
+        const type = this.getDocumentType();
+        
+        if (author) {
+            return `Cover image for ${type} "${title}" by ${author}`;
+        } else {
+            return `Cover image for ${type} "${title}"`;
+        }
+    }
+
+    /**
+     * Generate aria-label for the main link
+     */
+    private generateLinkAriaLabel(title: string, author: string): string {
+        const type = this.getDocumentType();
+        
+        if (author) {
+            return `View details for ${type} "${title}" by ${author}`;
+        } else {
+            return `View details for ${type} "${title}"`;
+        }
+    }
+
+    /**
+     * Get document type for better accessibility descriptions
+     */
+    private getDocumentType(): string {
+        const type = this.doc?.pnx?.display?.type?.[0];
+        const format = this.doc?.pnx?.display?.format?.[0];
+        
+        // Map common types to more user-friendly terms
+        const typeMap: { [key: string]: string } = {
+            'book': 'book',
+            'journal': 'journal',
+            'newspaper': 'newspaper',
+            'article': 'article',
+            'thesis': 'thesis',
+            'dissertation': 'dissertation',
+            'conference': 'conference paper',
+            'patent': 'patent',
+            'review': 'review',
+            'report': 'report'
+        };
+
+        if (type && typeMap[type.toLowerCase()]) {
+            return typeMap[type.toLowerCase()];
+        }
+
+        // Check format if type is not clear
+        if (format) {
+            if (format.toLowerCase().includes('electronic') || format.toLowerCase().includes('online')) {
+                return 'digital resource';
+            }
+        }
+
+        return 'item';
     }
 
     getAlmaDThumbnailBaseUrl() {
@@ -70,8 +181,13 @@ export class PnxCard extends LitElement {
         const recordId = this.doc.pnx.control.recordid;
         const context = this.doc.context;
 
+        // Ensure all parts are strings before concatenation
+        const vid = this.vid ?? '';
+        const lang = this.language ?? 'en'; // Default to 'en' if null
+        const scp = this.scope ?? '';
+        const tb = this.tab ?? '';
 
-        deeplink = protocol + this.host + primoMapping + state + "&docid=" + recordId + "&context=" + context + "&vid=" + this.vid + "&lang=" + this.language + "&search_scope=" + this.scope + "&tab=" + this.tab;
+        deeplink = protocol + this.host + primoMapping + state + "&docid=" + recordId + "&context=" + context + "&vid=" + vid + "&lang=" + lang + "&search_scope=" + scp + "&tab=" + tb;
 
         return deeplink;
     }
