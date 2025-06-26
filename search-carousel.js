@@ -45,7 +45,6 @@ let SearchCarousel = class SearchCarousel extends LitElement {
         this.scope = parsedUrl.searchParams.get("scope");
         this.tab = parsedUrl.searchParams.get("tab");
         this.institution = parsedUrl.searchParams.get("inst");
-        const titleHtml = this.getTitleHtml();
         const docsPromise = this.data.then((data) => {
             console.log('Data received:', data);
             if (!data || !data.docs || data.docs.length === 0) {
@@ -88,7 +87,6 @@ let SearchCarousel = class SearchCarousel extends LitElement {
         console.log('Rendering grid container');
         return html `
             <div class="gallery-container">
-                ${titleHtml}
                 <div 
                     class="grid-container"
                     role="grid"
@@ -99,17 +97,19 @@ let SearchCarousel = class SearchCarousel extends LitElement {
                             Loading search results, please wait...
                         </p>`)}
                 </div>
+                ${this.getButtonHtml()}
             </div>
         `;
     }
     // Removed updated() method as it was for Swiper initialization
     // Removed activateChangeAriaLabel() method
-    getTitleHtml() {
-        if (this.titleText) {
-            if (this.titleLink) {
-                return html `<h2><a href="${this.titleLink}">${this.titleText}</a></h2>`;
-            }
-            return html `<h2>${this.titleText}</h2>`;
+    getButtonHtml() {
+        if (this.titleText && this.titleLink) {
+            return html `
+                <div class="button-container">
+                    <a href="${this.titleLink}" class="action-button">${this.titleText}</a>
+                </div>
+            `;
         }
         return html ``;
     }
@@ -146,16 +146,33 @@ SearchCarousel.styles = css `
         line-height: var(--search-carousel-title-line-height, 1.2);
       }
 
-      /* Specific styling for title links - inherits h2 color */
-      .gallery-container h2 a {
-        color: inherit; /* Inherits the h2 color */
+      .action-button {
+        display: inline-block;
+        margin-top: var(--search-carousel-button-margin, 20px);
+        padding: var(--search-carousel-button-padding, 12px 24px);
+        background-color: var(--search-carousel-button-bg, #FFFFFF);
+        color: var(--search-carousel-button-color, #000000) !important;
+        border: var(--search-carousel-button-border, none);
+        border-radius: var(--search-carousel-button-radius, 6px);
+        font-size: var(--search-carousel-button-size, 14px);
+        font-family: var(--search-carousel-button-font, inherit);
+        font-weight: var(--search-carousel-button-weight, 500);
+        text-decoration: none;
+        cursor: pointer;
+        transition: background-color 0.2s ease;
+        text-align: center;
+      }
+
+      .action-button:hover,
+      .action-button:focus {
+        background-color: var(--search-carousel-button-hover-bg, #0056b3);
+        color: var(--search-carousel-button-color, #000000) !important;
         text-decoration: none;
       }
 
-      .gallery-container h2 a:hover, 
-      .gallery-container h2 a:focus {
-        color: var(--search-carousel-title-hover-color, var(--search-carousel-title-color, #000));
-        text-decoration: var(--search-carousel-title-hover-decoration, underline);
+      .button-container {
+        text-align: var(--search-carousel-button-align, center);
+        margin-top: var(--search-carousel-button-container-margin, 20px);
       }
 
       .grid-container {

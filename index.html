@@ -8,24 +8,36 @@
 <style>
     /* Customize the search carousel appearance */
     search-carousel {
-      --search-carousel-title-color: #0e3e6d;
+      --search-carousel-title-color: #ffffff !important;
+    
       --search-carousel-title-size: 2rem;
       --search-carousel-title-font: 'Georgia, serif';
       --search-carousel-title-weight: 600;
-      --search-carousel-gap: 5px;
+      --search-carousel-gap: 10px;
       --search-carousel-min-card-width: 220px;
       --search-carousel-padding: 30px;
+      
+      --search-carousel-button-bg: #005A9E;
+      --search-carousel-button-color: #ffffff !important;
+      --search-carousel-button-padding: 12px 24px;
+      --search-carousel-button-radius: 0;
+      --search-carousel-button-font: 'Arial, sans-serif';
+      --search-carousel-button-size: 18px;
+      --search-carousel-button-weight: 600;
+      --search-carousel-button-align: center;
+      --search-carousel-button-margin: 30px;
+      --search-carousel-button-border: 1px solid #005A9E;
     }
     
     /* Customize the individual cards */
     pnx-card {
       --pnx-card-title-color: #4f7ba7;
-      --pnx-card-title-size: 14px;
+      --pnx-card-title-size: 18px;
       --pnx-card-title-font: 'Arial, sans-serif';
       --pnx-card-description-color: #7f8c8d;
       --pnx-card-image-height: 240px;
       --pnx-card-image-fit: cover;
-      --pnx-card-border-radius: 8px;
+      --pnx-card-border-radius: 0px;
       --pnx-card-shadow: 0 2px 4px rgba(0,0,0,0.1);
       --pnx-card-hover-shadow: 0 8px 16px rgba(0,0,0,0.2);
       --pnx-card-background: #ffffff;
@@ -34,7 +46,7 @@
   </style>
   </head>  <body>
 
-    <search-carousel titleText="San Elijo Newbook Collection" titleLink="https://www.google.com" defaultThumbnailUrl="https://hub.miracosta.edu/library/primoimages/default.png"
+    <search-carousel titleText="San Elijo Newbook Collection" titleLink="https://caccl-miracosta.primo.exlibrisgroup.com/discovery/collectionDiscovery?vid=01CACCL_MIRACOSTA:MIRACOSTA&collectionId=8199591370005274&lang=en" defaultThumbnailUrl="https://hub.miracosta.edu/library/primoimages/default.png" 
           searchUrl="https://caccl-miracosta.primo.exlibrisgroup.com/primaws/rest/external/pnxs?acTriggered=false&disableCache=false&getMore=0&inst=01CACCL_MIRACOSTA&isCDSearch=true&lang=en&limit=10&newspapersActive=false&newspapersSearch=false&offset=0&q=cdparentid,exact,8199591370005274&qExclude=&qInclude=&refEntryActive=false&rtaLinks=true&scope=browse_search&skipDelivery=Y&tab=Everything&vid=01CACCL_MIRACOSTA:MIRACOSTA">
     </search-carousel>
 

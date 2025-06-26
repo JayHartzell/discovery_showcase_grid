@@ -17,6 +17,6 @@ export declare class SearchCarousel extends LitElement {
     connectedCallback(): void;
     performQuery(): Promise<void>;
     render(): import("lit-html").TemplateResult<1>;
-    private getTitleHtml;
+    private getButtonHtml;
 }
 //# sourceMappingURL=search-carousel.d.ts.map
