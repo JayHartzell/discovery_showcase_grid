@@ -25,6 +25,7 @@ export class PnxCard extends LitElement {
     tab!: string | null; // Allow null
     @property()
     defaultThumbnailUrl: string | undefined;
+    
     private almaDThumbnailBaseURL!: string;
 
     override render() {
@@ -46,8 +47,7 @@ export class PnxCard extends LitElement {
         </div>`;
         
         const imgPromise = img.then(url => {
-            console.log(`getImageUrl returned ${url}`)
-            return html`<img src=${url} alt="${altText}">`
+            return html`<img src="${url}" alt="${altText}" loading="lazy" />`;
         }).catch(() => imagePlaceHolder); //on error or no thumbnail render the image placeholder
         
         const deeplink = this.getDeeplink();
@@ -58,9 +58,26 @@ export class PnxCard extends LitElement {
                 aria-label="${linkAriaLabel}"
                 role="link">
                 ${until(imgPromise, imagePlaceHolder)}
+                <!-- <div class="title">${title}</div>
+                <div class="description">${author}</div> -->
             </a>
             
         `
+    }
+
+    /**
+     * Check if this document has a valid thumbnail image available
+     */
+    async hasThumbnailImage(): Promise<boolean> {
+        try {
+            const thumbnailUrl = await this.getThumbnailLinks();
+            // Consider it has a thumbnail if we get a URL that's not empty and not the default
+            return thumbnailUrl && 
+                   thumbnailUrl !== '' && 
+                   thumbnailUrl !== this.defaultThumbnailUrl;
+        } catch (error) {
+            return false;
+        }
     }
 
     /**

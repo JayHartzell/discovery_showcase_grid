@@ -9,6 +9,7 @@ export class SearchCarousel extends LitElement {
     @property() titleText: string | undefined;
     @property() titleLink: string | undefined;
     @property() defaultThumbnailUrl: string | undefined;
+    @property({type: Number}) desiredCardCount: number = 10; // New property for desired number of cards to display
 
     @state()
     private data: any;
@@ -48,7 +49,7 @@ export class SearchCarousel extends LitElement {
       .gallery-container h2 {
         color: var(--search-carousel-title-color, #000);
         font-size: var(--search-carousel-title-size, 1.5em);
-        font-family: var(--search-carousel-title-font, inherit);
+        font-family: var(--search-carousel-title-font, Arial, sans-serif);
         font-weight: var(--search-carousel-title-weight, bold);
         text-align: var(--search-carousel-title-align, center);
         margin: var(--search-carousel-title-margin, 0 0 1em 0);
@@ -64,7 +65,7 @@ export class SearchCarousel extends LitElement {
         border: var(--search-carousel-button-border, none);
         border-radius: var(--search-carousel-button-radius, 6px);
         font-size: var(--search-carousel-button-size, 14px);
-        font-family: var(--search-carousel-button-font, inherit);
+        font-family: var(--search-carousel-button-font, Arial, sans-serif);
         font-weight: var(--search-carousel-button-weight, 500);
         text-decoration: none;
         cursor: pointer;
@@ -114,7 +115,9 @@ export class SearchCarousel extends LitElement {
 
     override connectedCallback() {
         super.connectedCallback();
-        this.performQuery();
+        // We'll initialize the data promise here but actual fetching happens in render
+        // when we have access to parsed URL parameters
+        this.data = Promise.resolve({ docs: [] });
     }
 
     async performQuery() {
@@ -128,7 +131,81 @@ export class SearchCarousel extends LitElement {
             console.error("Failed to perform query:", error);
             this.data = Promise.resolve({ docs: [] }); // Ensure data is a resolved promise with empty docs on error
         }
-    }    // Removed createRenderRoot override to allow shadow DOM and proper CSS scoping
+    }
+
+    /**
+     * Fetch additional results to ensure we have enough cards with thumbnails
+     */
+    async fetchResultsWithThumbnails(): Promise<any[]> {
+        const docsWithThumbnails: any[] = [];
+        let offset = 0;
+        const batchSize = Math.max(this.desiredCardCount * 2, 20); // Fetch 2x desired amount or minimum 20
+        const maxAttempts = 5; // Prevent infinite loops
+        let attempts = 0;
+
+        while (docsWithThumbnails.length < this.desiredCardCount && attempts < maxAttempts) {
+            try {
+                // Modify the search URL to include current offset and increased limit
+                const url = new URL(this.searchUrl);
+                url.searchParams.set('offset', offset.toString());
+                url.searchParams.set('limit', batchSize.toString());
+
+                const response = await fetch(url.toString());
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                if (!data || !data.docs || data.docs.length === 0) {
+                    break; // No more results available
+                }
+
+                // Check each document for thumbnail availability
+                for (const doc of data.docs) {
+                    if (docsWithThumbnails.length >= this.desiredCardCount) {
+                        break;
+                    }
+
+                    // Create a temporary card to check if it has a thumbnail
+                    const tempCard = document.createElement('pnx-card') as any;
+                    tempCard.doc = doc;
+                    tempCard.host = this.host ?? '';
+                    tempCard.institution = this.institution;
+                    tempCard.vid = this.viewId;
+                    tempCard.language = this.language;
+                    tempCard.scope = this.scope;
+                    tempCard.tab = this.tab;
+                    tempCard.defaultThumbnailUrl = this.defaultThumbnailUrl;
+
+                    try {
+                        const hasThumbnail = await tempCard.hasThumbnailImage();
+                        if (hasThumbnail) {
+                            docsWithThumbnails.push(doc);
+                        }
+                    } catch (error) {
+                        console.warn('Error checking thumbnail for document:', error);
+                        // Skip this document if we can't determine thumbnail status
+                    }
+                }
+
+                offset += batchSize;
+                attempts++;
+
+                // If we got fewer results than requested, we've reached the end
+                if (data.docs.length < batchSize) {
+                    break;
+                }
+
+            } catch (error) {
+                console.error(`Failed to fetch batch at offset ${offset}:`, error);
+                break;
+            }
+        }
+
+        return docsWithThumbnails.slice(0, this.desiredCardCount); // Ensure we don't exceed desired count
+    }
+
+    // Removed createRenderRoot override to allow shadow DOM and proper CSS scoping
     override render() {
         console.log('SearchCarousel render called, data:', this.data);
         if (!this.data) {
@@ -145,23 +222,24 @@ export class SearchCarousel extends LitElement {
         this.tab = parsedUrl.searchParams.get("tab")
         this.institution = parsedUrl.searchParams.get("inst")
 
-        const docsPromise = this.data.then((data: any) => {
-            console.log('Data received:', data);
-            if (!data || !data.docs || data.docs.length === 0) {
+        const docsPromise = this.fetchResultsWithThumbnails().then((docsWithThumbnails: any[]) => {
+            console.log('Filtered docs with thumbnails:', docsWithThumbnails);
+            
+            if (docsWithThumbnails.length === 0) {
                 return html`
                     <p role="status" aria-live="polite">
-                        No search results found. Try different search terms or check your search criteria.
+                        No items with thumbnail images found in the search results.
                     </p>`;
             }
             
-            const totalResults = data.docs.length;
-            const resultsAnnouncement = `Showing ${totalResults} search result${totalResults === 1 ? '' : 's'}`;
+            const totalResults = docsWithThumbnails.length;
+            const resultsAnnouncement = `Showing ${totalResults} item${totalResults === 1 ? '' : 's'} with thumbnail images`;
             
             return html`
                 <div class="sr-only" role="status" aria-live="polite" aria-atomic="true">
                     ${resultsAnnouncement}
                 </div>
-                ${data.docs.map((doc: any, index: number) =>
+                ${docsWithThumbnails.map((doc: any, index: number) =>
                     html`
                         <pnx-card 
                             .doc="${doc}" 

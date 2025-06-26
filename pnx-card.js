@@ -25,8 +25,7 @@ let PnxCard = class PnxCard extends LitElement {
             <span aria-hidden="true">📚</span>
         </div>`;
         const imgPromise = img.then(url => {
-            console.log(`getImageUrl returned ${url}`);
-            return html `<img src=${url} alt="${altText}">`;
+            return html `<img src="${url}" alt="${altText}" loading="lazy" />`;
         }).catch(() => imagePlaceHolder); //on error or no thumbnail render the image placeholder
         const deeplink = this.getDeeplink();
         return html `
@@ -36,9 +35,26 @@ let PnxCard = class PnxCard extends LitElement {
                 aria-label="${linkAriaLabel}"
                 role="link">
                 ${until(imgPromise, imagePlaceHolder)}
+                <!-- <div class="title">${title}</div>
+                <div class="description">${author}</div> -->
             </a>
             
         `;
+    }
+    /**
+     * Check if this document has a valid thumbnail image available
+     */
+    async hasThumbnailImage() {
+        try {
+            const thumbnailUrl = await this.getThumbnailLinks();
+            // Consider it has a thumbnail if we get a URL that's not empty and not the default
+            return thumbnailUrl &&
+                thumbnailUrl !== '' &&
+                thumbnailUrl !== this.defaultThumbnailUrl;
+        }
+        catch (error) {
+            return false;
+        }
     }
     /**
      * Extract the document title from various possible fields

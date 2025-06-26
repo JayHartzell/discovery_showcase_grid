@@ -12,6 +12,10 @@ export declare class PnxCard extends LitElement {
     private almaDThumbnailBaseURL;
     render(): import("lit-html").TemplateResult<1>;
     /**
+     * Check if this document has a valid thumbnail image available
+     */
+    hasThumbnailImage(): Promise<boolean>;
+    /**
      * Extract the document title from various possible fields
      */
     private getDocumentTitle;
