@@ -152,33 +152,30 @@ let SearchCarousel = class SearchCarousel extends LitElement {
     }
     // Removed createRenderRoot override to allow shadow DOM and proper CSS scoping
     render() {
-        const totalResults = this.docsWithThumbnails.length;
         return html `
             <div class="gallery-container">
-                <div 
+                <ul 
                     class="grid-container"
-                    role="grid"
                     aria-label="${this.titleText ? `Search results for ${this.titleText}` : 'Search results'}"
                     aria-live="polite">
-                    ${this.docsWithThumbnails.map((item, index) => {
+                    ${this.docsWithThumbnails.map((item) => {
             var _a;
             return html `
-                            <pnx-card 
-                                .doc="${item.doc}" 
-                                .host="${(_a = this.host) !== null && _a !== void 0 ? _a : ''}" 
-                                .institution="${this.institution}"
-                                .vid="${this.viewId}"
-                                .language="${this.language}" 
-                                .scope="${this.scope}"
-                                .tab="${this.tab}"
-                                .preloadedThumbnailUrl="${item.thumbnailUrl}"
-                                role="gridcell"
-                                aria-posinset="${index + 1}"
-                                aria-setsize="${totalResults}">
-                            </pnx-card>
+                            <li>
+                                <pnx-card 
+                                    .doc="${item.doc}" 
+                                    .host="${(_a = this.host) !== null && _a !== void 0 ? _a : ''}" 
+                                    .institution="${this.institution}"
+                                    .vid="${this.viewId}"
+                                    .language="${this.language}" 
+                                    .scope="${this.scope}"
+                                    .tab="${this.tab}"
+                                    .preloadedThumbnailUrl="${item.thumbnailUrl}">
+                                </pnx-card>
+                            </li>
                         `;
         })}
-                </div>
+                </ul>
             </div>
         `;
     }
@@ -248,6 +245,13 @@ SearchCarousel.styles = css `
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(var(--search-carousel-min-card-width, 200px), 1fr));
         gap: var(--search-carousel-gap, 20px);
+        list-style: none;
+        padding: 0;
+        margin: 0;
+      }
+
+      .grid-container li {
+        display: contents;
       }
 
       /* Screen reader only text for additional context */
