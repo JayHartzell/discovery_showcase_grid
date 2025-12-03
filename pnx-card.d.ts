@@ -9,12 +9,29 @@ export declare class PnxCard extends LitElement {
     scope: string | null;
     tab: string | null;
     defaultThumbnailUrl: string | undefined;
+    preloadedThumbnailUrl: string | undefined;
     private almaDThumbnailBaseURL;
     render(): import("lit-html").TemplateResult<1>;
     /**
      * Check if this document has a valid thumbnail image available
      */
     hasThumbnailImage(): Promise<boolean>;
+    /**
+     * Static method to check thumbnail for a document without creating a DOM element
+     * Used by search-carousel for efficient parallel thumbnail checking
+     */
+    static checkThumbnailForDoc(doc: any, config: {
+        host: string;
+        institution: string | null;
+        vid: string | null;
+        language: string | null;
+        scope: string | null;
+        tab: string | null;
+    }): Promise<string | null>;
+    /**
+     * Get thumbnail links without default fallback - for static checking
+     */
+    getThumbnailLinksStatic(): Promise<string | null>;
     /**
      * Extract the document title from various possible fields
      */

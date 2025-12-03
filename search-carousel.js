@@ -6,49 +6,64 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 };
 import { LitElement, html, css } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import { until } from 'lit/directives/until.js';
 import './pnx-card.js'; // Ensures PnxCard is defined
+import { PnxCard } from './pnx-card.js';
 let SearchCarousel = class SearchCarousel extends LitElement {
     constructor() {
         super();
         this.searchUrl = '';
-        this.desiredCardCount = 10; // New property for desired number of cards to display
+        this.desiredCardCount = 10; // Desired number of cards to display
+        this.parallelBatchSize = 10; // How many documents to check in parallel
+        this.docsWithThumbnails = []; // Progressive rendering array
+        this.isLoading = false;
+        // Per-instance cache for thumbnail URLs (isolated from other search-carousel components)
+        this.thumbnailCache = new Map();
     }
     connectedCallback() {
         super.connectedCallback();
-        // We'll initialize the data promise here but actual fetching happens in render
-        // when we have access to parsed URL parameters
-        this.data = Promise.resolve({ docs: [] });
-    }
-    async performQuery() {
-        try {
-            const response = await fetch(this.searchUrl);
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            this.data = response.json(); // This returns a promise
-        }
-        catch (error) {
-            console.error("Failed to perform query:", error);
-            this.data = Promise.resolve({ docs: [] }); // Ensure data is a resolved promise with empty docs on error
-        }
+        // Parse URL parameters and start fetching
+        this.parseUrlParams();
+        this.startProgressiveFetch();
     }
     /**
-     * Fetch additional results to ensure we have enough cards with thumbnails
+     * Parse URL parameters from searchUrl
      */
-    async fetchResultsWithThumbnails() {
-        var _a;
-        const docsWithThumbnails = [];
+    parseUrlParams() {
+        if (!this.searchUrl)
+            return;
+        const parsedUrl = new URL(this.searchUrl);
+        this.host = parsedUrl.host;
+        this.viewId = parsedUrl.searchParams.get("vid");
+        this.language = parsedUrl.searchParams.get("lang");
+        this.scope = parsedUrl.searchParams.get("scope");
+        this.tab = parsedUrl.searchParams.get("tab");
+        this.institution = parsedUrl.searchParams.get("inst");
+    }
+    /**
+     * Get cache key for a document
+     */
+    getDocCacheKey(doc) {
+        var _a, _b, _c, _d;
+        return ((_c = (_b = (_a = doc === null || doc === void 0 ? void 0 : doc.pnx) === null || _a === void 0 ? void 0 : _a.control) === null || _b === void 0 ? void 0 : _b.recordid) === null || _c === void 0 ? void 0 : _c[0]) || (doc === null || doc === void 0 ? void 0 : doc['@id']) || JSON.stringify((_d = doc === null || doc === void 0 ? void 0 : doc.pnx) === null || _d === void 0 ? void 0 : _d.control);
+    }
+    /**
+     * Start progressive fetching - cards render as they are found
+     */
+    async startProgressiveFetch() {
+        if (this.isLoading)
+            return;
+        this.isLoading = true;
+        this.docsWithThumbnails = [];
         let offset = 0;
-        const batchSize = Math.max(this.desiredCardCount * 2, 20); // Fetch 2x desired amount or minimum 20
-        const maxAttempts = 5; // Prevent infinite loops
+        const fetchBatchSize = Math.max(this.desiredCardCount * 3, 30); // Fetch 3x desired to have enough candidates
+        const maxAttempts = 5;
         let attempts = 0;
-        while (docsWithThumbnails.length < this.desiredCardCount && attempts < maxAttempts) {
+        while (this.docsWithThumbnails.length < this.desiredCardCount && attempts < maxAttempts) {
             try {
-                // Modify the search URL to include current offset and increased limit
+                // Fetch a batch of documents
                 const url = new URL(this.searchUrl);
                 url.searchParams.set('offset', offset.toString());
-                url.searchParams.set('limit', batchSize.toString());
+                url.searchParams.set('limit', fetchBatchSize.toString());
                 const response = await fetch(url.toString());
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
@@ -57,36 +72,12 @@ let SearchCarousel = class SearchCarousel extends LitElement {
                 if (!data || !data.docs || data.docs.length === 0) {
                     break; // No more results available
                 }
-                // Check each document for thumbnail availability
-                for (const doc of data.docs) {
-                    if (docsWithThumbnails.length >= this.desiredCardCount) {
-                        break;
-                    }
-                    // Create a temporary card to check if it has a thumbnail
-                    const tempCard = document.createElement('pnx-card');
-                    tempCard.doc = doc;
-                    tempCard.host = (_a = this.host) !== null && _a !== void 0 ? _a : '';
-                    tempCard.institution = this.institution;
-                    tempCard.vid = this.viewId;
-                    tempCard.language = this.language;
-                    tempCard.scope = this.scope;
-                    tempCard.tab = this.tab;
-                    tempCard.defaultThumbnailUrl = this.defaultThumbnailUrl;
-                    try {
-                        const hasThumbnail = await tempCard.hasThumbnailImage();
-                        if (hasThumbnail) {
-                            docsWithThumbnails.push(doc);
-                        }
-                    }
-                    catch (error) {
-                        console.warn('Error checking thumbnail for document:', error);
-                        // Skip this document if we can't determine thumbnail status
-                    }
-                }
-                offset += batchSize;
+                // Process documents in parallel batches
+                await this.processDocsInParallel(data.docs);
+                offset += fetchBatchSize;
                 attempts++;
                 // If we got fewer results than requested, we've reached the end
-                if (data.docs.length < batchSize) {
+                if (data.docs.length < fetchBatchSize) {
                     break;
                 }
             }
@@ -95,64 +86,73 @@ let SearchCarousel = class SearchCarousel extends LitElement {
                 break;
             }
         }
-        return docsWithThumbnails.slice(0, this.desiredCardCount); // Ensure we don't exceed desired count
+        this.isLoading = false;
+    }
+    /**
+     * Process documents in parallel batches for thumbnail checking
+     * Cards are added to docsWithThumbnails as they are validated (progressive rendering)
+     */
+    async processDocsInParallel(docs) {
+        // Process in chunks of parallelBatchSize
+        for (let i = 0; i < docs.length && this.docsWithThumbnails.length < this.desiredCardCount; i += this.parallelBatchSize) {
+            const chunk = docs.slice(i, i + this.parallelBatchSize);
+            // Check all documents in this chunk in parallel
+            const thumbnailPromises = chunk.map(doc => this.checkDocumentThumbnail(doc));
+            const results = await Promise.allSettled(thumbnailPromises);
+            // Process results and add valid ones progressively
+            for (let j = 0; j < results.length; j++) {
+                if (this.docsWithThumbnails.length >= this.desiredCardCount) {
+                    break;
+                }
+                const result = results[j];
+                if (result.status === 'fulfilled' && result.value) {
+                    // Add to reactive array - triggers re-render
+                    this.docsWithThumbnails = [...this.docsWithThumbnails, result.value];
+                }
+            }
+        }
+    }
+    /**
+     * Check if a document has a valid thumbnail using static method
+     * Returns {doc, thumbnailUrl} if valid, null otherwise
+     */
+    async checkDocumentThumbnail(doc) {
+        var _a;
+        const cacheKey = this.getDocCacheKey(doc);
+        // Check cache first
+        if (this.thumbnailCache.has(cacheKey)) {
+            const cachedUrl = this.thumbnailCache.get(cacheKey);
+            if (cachedUrl) {
+                return { doc, thumbnailUrl: cachedUrl };
+            }
+            return null; // Cached as no thumbnail
+        }
+        try {
+            // Use the static method from PnxCard to check thumbnail
+            const thumbnailUrl = await PnxCard.checkThumbnailForDoc(doc, {
+                host: (_a = this.host) !== null && _a !== void 0 ? _a : '',
+                institution: this.institution,
+                vid: this.viewId,
+                language: this.language,
+                scope: this.scope,
+                tab: this.tab
+            });
+            // Cache the result
+            this.thumbnailCache.set(cacheKey, thumbnailUrl || null);
+            if (thumbnailUrl) {
+                return { doc, thumbnailUrl };
+            }
+            return null;
+        }
+        catch (error) {
+            // Cache as no thumbnail on error
+            this.thumbnailCache.set(cacheKey, null);
+            return null;
+        }
     }
     // Removed createRenderRoot override to allow shadow DOM and proper CSS scoping
     render() {
-        console.log('SearchCarousel render called, data:', this.data);
-        if (!this.data) {
-            return html `
-                <div class="gallery-container">
-                    <p role="status" aria-live="polite">Loading search results...</p>
-                </div>`;
-        }
-        const parsedUrl = new URL(this.searchUrl);
-        this.host = parsedUrl.host;
-        this.viewId = parsedUrl.searchParams.get("vid");
-        this.language = parsedUrl.searchParams.get("lang");
-        this.scope = parsedUrl.searchParams.get("scope");
-        this.tab = parsedUrl.searchParams.get("tab");
-        this.institution = parsedUrl.searchParams.get("inst");
-        const docsPromise = this.fetchResultsWithThumbnails().then((docsWithThumbnails) => {
-            console.log('Filtered docs with thumbnails:', docsWithThumbnails);
-            if (docsWithThumbnails.length === 0) {
-                return html `
-                    <p role="status" aria-live="polite">
-                        No items with thumbnail images found in the search results.
-                    </p>`;
-            }
-            const totalResults = docsWithThumbnails.length;
-            const resultsAnnouncement = `Showing ${totalResults} item${totalResults === 1 ? '' : 's'} with thumbnail images`;
-            return html `
-                <div class="sr-only" role="status" aria-live="polite" aria-atomic="true">
-                    ${resultsAnnouncement}
-                </div>
-                ${docsWithThumbnails.map((doc, index) => {
-                var _a;
-                return html `
-                        <pnx-card 
-                            .doc="${doc}" 
-                            .host="${(_a = this.host) !== null && _a !== void 0 ? _a : ''}" 
-                            .institution="${this.institution}"
-                            .vid="${this.viewId}"
-                            .language="${this.language}" 
-                            .scope="${this.scope}"
-                            .tab="${this.tab}" 
-                            .defaultThumbnailUrl="${this.defaultThumbnailUrl}"
-                            role="gridcell"
-                            aria-posinset="${index + 1}"
-                            aria-setsize="${totalResults}">
-                        </pnx-card>
-                    `;
-            })}`;
-        }).catch((error) => {
-            console.error("Error processing data for rendering:", error);
-            return html `
-                <p role="alert" aria-live="assertive">
-                    Error loading search results. Please try refreshing the page or contact support if the problem persists.
-                </p>`;
-        });
-        console.log('Rendering grid container');
+        const totalResults = this.docsWithThumbnails.length;
         return html `
             <div class="gallery-container">
                 <div 
@@ -160,28 +160,27 @@ let SearchCarousel = class SearchCarousel extends LitElement {
                     role="grid"
                     aria-label="${this.titleText ? `Search results for ${this.titleText}` : 'Search results'}"
                     aria-live="polite">
-                    ${until(docsPromise, html `
-                        <p role="status" aria-live="polite">
-                            Loading search results, please wait...
-                        </p>`)}
+                    ${this.docsWithThumbnails.map((item, index) => {
+            var _a;
+            return html `
+                            <pnx-card 
+                                .doc="${item.doc}" 
+                                .host="${(_a = this.host) !== null && _a !== void 0 ? _a : ''}" 
+                                .institution="${this.institution}"
+                                .vid="${this.viewId}"
+                                .language="${this.language}" 
+                                .scope="${this.scope}"
+                                .tab="${this.tab}"
+                                .preloadedThumbnailUrl="${item.thumbnailUrl}"
+                                role="gridcell"
+                                aria-posinset="${index + 1}"
+                                aria-setsize="${totalResults}">
+                            </pnx-card>
+                        `;
+        })}
                 </div>
-                <!-- Button code commented out for no-button build
-                ${this.getButtonHtml()}
-                -->
             </div>
         `;
-    }
-    // Removed updated() method as it was for Swiper initialization
-    // Removed activateChangeAriaLabel() method
-    getButtonHtml() {
-        if (this.titleText && this.titleLink) {
-            return html `
-                <div class="button-container">
-                    <a href="${this.titleLink}" class="action-button">${this.titleText}</a>
-                </div>
-            `;
-        }
-        return html ``;
     }
 };
 SearchCarousel.styles = css `
@@ -282,14 +281,17 @@ __decorate([
     property()
 ], SearchCarousel.prototype, "titleLink", void 0);
 __decorate([
-    property()
-], SearchCarousel.prototype, "defaultThumbnailUrl", void 0);
-__decorate([
     property({ type: Number })
 ], SearchCarousel.prototype, "desiredCardCount", void 0);
 __decorate([
+    property({ type: Number })
+], SearchCarousel.prototype, "parallelBatchSize", void 0);
+__decorate([
     state()
-], SearchCarousel.prototype, "data", void 0);
+], SearchCarousel.prototype, "docsWithThumbnails", void 0);
+__decorate([
+    state()
+], SearchCarousel.prototype, "isLoading", void 0);
 SearchCarousel = __decorate([
     customElement('search-carousel')
 ], SearchCarousel);

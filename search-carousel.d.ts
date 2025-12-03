@@ -4,24 +4,42 @@ export declare class SearchCarousel extends LitElement {
     searchUrl: string;
     titleText: string | undefined;
     titleLink: string | undefined;
-    defaultThumbnailUrl: string | undefined;
     desiredCardCount: number;
-    private data;
+    parallelBatchSize: number;
+    private docsWithThumbnails;
+    private isLoading;
     private viewId;
     private language;
     private scope;
     private tab;
     private institution;
     private host;
+    private thumbnailCache;
     constructor();
     static styles: import("lit").CSSResult;
     connectedCallback(): void;
-    performQuery(): Promise<void>;
     /**
-     * Fetch additional results to ensure we have enough cards with thumbnails
+     * Parse URL parameters from searchUrl
      */
-    fetchResultsWithThumbnails(): Promise<any[]>;
+    private parseUrlParams;
+    /**
+     * Get cache key for a document
+     */
+    private getDocCacheKey;
+    /**
+     * Start progressive fetching - cards render as they are found
+     */
+    private startProgressiveFetch;
+    /**
+     * Process documents in parallel batches for thumbnail checking
+     * Cards are added to docsWithThumbnails as they are validated (progressive rendering)
+     */
+    private processDocsInParallel;
+    /**
+     * Check if a document has a valid thumbnail using static method
+     * Returns {doc, thumbnailUrl} if valid, null otherwise
+     */
+    private checkDocumentThumbnail;
     render(): import("lit-html").TemplateResult<1>;
-    private getButtonHtml;
 }
 //# sourceMappingURL=search-carousel.d.ts.map

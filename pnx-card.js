@@ -4,14 +4,14 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
     else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
     return c > 3 && r && Object.defineProperty(target, key, r), r;
 };
+var PnxCard_1;
 import { html, LitElement } from "lit";
 import { customElement, property } from "lit/decorators.js";
 import { styles } from './pnx-card-style';
 import { until } from 'lit-html/directives/until.js';
-let PnxCard = class PnxCard extends LitElement {
+let PnxCard = PnxCard_1 = class PnxCard extends LitElement {
     render() {
         this.almaDThumbnailBaseURL = this.getAlmaDThumbnailBaseUrl();
-        const img = this.getThumbnailLinks();
         // Extract document metadata for accessibility
         const title = this.getDocumentTitle();
         const author = this.getDocumentAuthor();
@@ -24,9 +24,18 @@ let PnxCard = class PnxCard extends LitElement {
             aria-label="${altText}">
             <span aria-hidden="true">📚</span>
         </div>`;
-        const imgPromise = img.then(url => {
-            return html `<img src="${url}" alt="${altText}" loading="lazy" />`;
-        }).catch(() => imagePlaceHolder); //on error or no thumbnail render the image placeholder
+        // Use preloaded thumbnail URL if available (from progressive loading)
+        // Otherwise fall back to fetching thumbnail
+        let imgPromise;
+        if (this.preloadedThumbnailUrl) {
+            imgPromise = Promise.resolve(html `<img src="${this.preloadedThumbnailUrl}" alt="${altText}" loading="lazy" />`);
+        }
+        else {
+            const img = this.getThumbnailLinks();
+            imgPromise = img.then(url => {
+                return html `<img src="${url}" alt="${altText}" loading="lazy" />`;
+            }).catch(() => imagePlaceHolder);
+        }
         const deeplink = this.getDeeplink();
         return html `
             <a  
@@ -47,13 +56,64 @@ let PnxCard = class PnxCard extends LitElement {
     async hasThumbnailImage() {
         try {
             const thumbnailUrl = await this.getThumbnailLinks();
-            // Consider it has a thumbnail if we get a URL that's not empty and not the default
-            return thumbnailUrl &&
-                thumbnailUrl !== '' &&
-                thumbnailUrl !== this.defaultThumbnailUrl;
+            // Consider it has a thumbnail if we get a URL that's not empty
+            return !!thumbnailUrl && thumbnailUrl !== '';
         }
         catch (error) {
             return false;
+        }
+    }
+    /**
+     * Static method to check thumbnail for a document without creating a DOM element
+     * Used by search-carousel for efficient parallel thumbnail checking
+     */
+    static async checkThumbnailForDoc(doc, config) {
+        // Create a minimal instance just for thumbnail checking (not attached to DOM)
+        const checker = new PnxCard_1();
+        checker.doc = doc;
+        checker.host = config.host;
+        checker.institution = config.institution;
+        checker.vid = config.vid;
+        checker.language = config.language;
+        checker.scope = config.scope;
+        checker.tab = config.tab;
+        try {
+            const thumbnailUrl = await checker.getThumbnailLinksStatic();
+            return thumbnailUrl || null;
+        }
+        catch (error) {
+            return null;
+        }
+    }
+    /**
+     * Get thumbnail links without default fallback - for static checking
+     */
+    async getThumbnailLinksStatic() {
+        var _a;
+        try {
+            this.almaDThumbnailBaseURL = this.getAlmaDThumbnailBaseUrl();
+            const linksArray = ((_a = this.doc.delivery) === null || _a === void 0 ? void 0 : _a.link) || [];
+            const thumbnailLinks = linksArray.filter((e) => e.displayLabel === 'thumbnail');
+            const almaD = await this.getThumbnailFromAlmaD();
+            if (almaD && typeof almaD === 'string' && almaD !== '')
+                return almaD;
+            const other = await this.getThumbnailFromOther(thumbnailLinks);
+            if (other && typeof other === 'string' && other !== '')
+                return other;
+            const syndeticsEXL = await this.getThumbnailFromSyndeticsEXL(thumbnailLinks);
+            if (syndeticsEXL && typeof syndeticsEXL === 'string' && syndeticsEXL !== '')
+                return syndeticsEXL;
+            const syndetics = await this.getThumbnailFromSyndetics(thumbnailLinks);
+            if (syndetics && typeof syndetics === 'string' && syndetics !== '')
+                return syndetics;
+            const google = await this.getThumbnailFromGoogle(thumbnailLinks);
+            if (google && typeof google === 'string' && google !== '')
+                return google;
+            // No default fallback - return null if no thumbnail found
+            return null;
+        }
+        catch (error) {
+            return null;
         }
     }
     /**
@@ -481,7 +541,10 @@ __decorate([
 __decorate([
     property()
 ], PnxCard.prototype, "defaultThumbnailUrl", void 0);
-PnxCard = __decorate([
+__decorate([
+    property()
+], PnxCard.prototype, "preloadedThumbnailUrl", void 0);
+PnxCard = PnxCard_1 = __decorate([
     customElement('pnx-card')
 ], PnxCard);
 export { PnxCard };
