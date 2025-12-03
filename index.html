@@ -7,27 +7,6 @@
     <script type="module" src="../search-carousel.js"></script>
 <style>
     /* Customize the search carousel appearance */
-    search-carousel {
-      --search-carousel-title-color: #ffffff !important;
-    
-      --search-carousel-title-size: 2rem;
-      --search-carousel-title-font: 'Arial, sans-serif';
-      --search-carousel-title-weight: 600;
-      --search-carousel-gap: 10px;
-      --search-carousel-min-card-width: 220px;
-      --search-carousel-padding: 30px;
-      
-      --search-carousel-button-bg: #005A9E;
-      --search-carousel-button-color: #ffffff !important;
-      --search-carousel-button-padding: 12px 24px;
-      --search-carousel-button-radius: 0;
-      --search-carousel-button-font: 'Arial, sans-serif';
-      --search-carousel-button-size: 18px;
-      --search-carousel-button-weight: 600;
-      --search-carousel-button-align: center;
-      --search-carousel-button-margin: 30px;
-      --search-carousel-button-border: 1px solid #005A9E;
-    }
     
     /* Customize the individual cards */
     pnx-card {
@@ -46,8 +25,9 @@
   </style>
   </head>  <body>
 
-    <search-carousel titleText="San Elijo Newbook Collection" titleLink="https://caccl-miracosta.primo.exlibrisgroup.com/discovery/collectionDiscovery?vid=01CACCL_MIRACOSTA:MIRACOSTA&collectionId=8199591370005274&lang=en" defaultThumbnailUrl="https://hub.miracosta.edu/library/primoimages/default.png" 
+    <search-carousel titleText="New print books at San Elijo" titleLink="https://caccl-miracosta.primo.exlibrisgroup.com/discovery/collectionDiscovery?vid=01CACCL_MIRACOSTA:MIRACOSTA&collectionId=8199591370005274&lang=en" defaultThumbnailUrl="https://hub.miracosta.edu/library/primoimages/default.png" 
           desiredCardCount="10"
+          hidebutton
           searchUrl="https://caccl-miracosta.primo.exlibrisgroup.com/primaws/rest/external/pnxs?acTriggered=false&disableCache=false&getMore=0&inst=01CACCL_MIRACOSTA&isCDSearch=true&lang=en&limit=20&newspapersActive=false&newspapersSearch=false&offset=0&q=cdparentid,exact,8199591370005274&qExclude=&qInclude=&refEntryActive=false&rtaLinks=true&scope=browse_search&skipDelivery=Y&tab=Everything&vid=01CACCL_MIRACOSTA:MIRACOSTA">
     </search-carousel>
 

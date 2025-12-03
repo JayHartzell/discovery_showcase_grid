@@ -276,7 +276,9 @@ export class SearchCarousel extends LitElement {
                             Loading search results, please wait...
                         </p>`)}
                 </div>
+                <!-- Button code commented out for no-button build
                 ${this.getButtonHtml()}
+                -->
             </div>
         `;
     }
