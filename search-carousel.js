@@ -14,6 +14,7 @@ let SearchCarousel = class SearchCarousel extends LitElement {
         this.searchUrl = '';
         this.desiredCardCount = 10; // Desired number of cards to display
         this.parallelBatchSize = 10; // How many documents to check in parallel
+        this.trustedThumbnailDomains = ''; // Comma-separated list of domains to skip thumbnail validation (avoids CORS issues)
         this.docsWithThumbnails = []; // Progressive rendering array
         this.isLoading = false;
         // Per-instance cache for thumbnail URLs (isolated from other search-carousel components)
@@ -128,6 +129,10 @@ let SearchCarousel = class SearchCarousel extends LitElement {
             return null; // Cached as no thumbnail
         }
         try {
+            // Parse trusted domains from comma-separated string
+            const trustedDomains = this.trustedThumbnailDomains
+                ? this.trustedThumbnailDomains.split(',').map(d => d.trim()).filter(d => d)
+                : [];
             // Use the static method from PnxCard to check thumbnail
             const thumbnailUrl = await PnxCard.checkThumbnailForDoc(doc, {
                 host: (_a = this.host) !== null && _a !== void 0 ? _a : '',
@@ -135,7 +140,8 @@ let SearchCarousel = class SearchCarousel extends LitElement {
                 vid: this.viewId,
                 language: this.language,
                 scope: this.scope,
-                tab: this.tab
+                tab: this.tab,
+                trustedDomains
             });
             // Cache the result
             this.thumbnailCache.set(cacheKey, thumbnailUrl || null);
@@ -290,6 +296,9 @@ __decorate([
 __decorate([
     property({ type: Number })
 ], SearchCarousel.prototype, "parallelBatchSize", void 0);
+__decorate([
+    property()
+], SearchCarousel.prototype, "trustedThumbnailDomains", void 0);
 __decorate([
     state()
 ], SearchCarousel.prototype, "docsWithThumbnails", void 0);

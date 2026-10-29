@@ -10,6 +10,7 @@ export declare class PnxCard extends LitElement {
     tab: string | null;
     defaultThumbnailUrl: string | undefined;
     preloadedThumbnailUrl: string | undefined;
+    trustedDomains: string[];
     private almaDThumbnailBaseURL;
     render(): import("lit-html").TemplateResult<1>;
     /**
@@ -27,6 +28,7 @@ export declare class PnxCard extends LitElement {
         language: string | null;
         scope: string | null;
         tab: string | null;
+        trustedDomains?: string[];
     }): Promise<string | null>;
     /**
      * Get thumbnail links without default fallback - for static checking
@@ -78,6 +80,10 @@ export declare class PnxCard extends LitElement {
     private resolveAlmaDigitalImage;
     private createLinkObj;
     getImageLink(imageUrl: string): Promise<unknown>;
+    /**
+     * Check if a URL is from a trusted domain (skip validation to avoid CORS)
+     */
+    private isFromTrustedDomain;
     private handleLink;
     private getSyndetixWithProxy;
 }

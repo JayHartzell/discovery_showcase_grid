@@ -10,6 +10,7 @@ export class SearchCarousel extends LitElement {
     @property() titleLink: string | undefined;
     @property({type: Number}) desiredCardCount: number = 10; // Desired number of cards to display
     @property({type: Number}) parallelBatchSize: number = 10; // How many documents to check in parallel
+    @property() trustedThumbnailDomains: string = ''; // Comma-separated list of domains to skip thumbnail validation (avoids CORS issues)
 
     @state()
     private docsWithThumbnails: Array<{doc: any, thumbnailUrl: string}> = []; // Progressive rendering array
@@ -250,6 +251,11 @@ export class SearchCarousel extends LitElement {
         }
 
         try {
+            // Parse trusted domains from comma-separated string
+            const trustedDomains = this.trustedThumbnailDomains 
+                ? this.trustedThumbnailDomains.split(',').map(d => d.trim()).filter(d => d)
+                : [];
+            
             // Use the static method from PnxCard to check thumbnail
             const thumbnailUrl = await PnxCard.checkThumbnailForDoc(doc, {
                 host: this.host ?? '',
@@ -257,7 +263,8 @@ export class SearchCarousel extends LitElement {
                 vid: this.viewId,
                 language: this.language,
                 scope: this.scope,
-                tab: this.tab
+                tab: this.tab,
+                trustedDomains
             });
 
             // Cache the result

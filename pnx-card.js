@@ -10,6 +10,10 @@ import { customElement, property } from "lit/decorators.js";
 import { styles } from './pnx-card-style';
 import { until } from 'lit-html/directives/until.js';
 let PnxCard = PnxCard_1 = class PnxCard extends LitElement {
+    constructor() {
+        super(...arguments);
+        this.trustedDomains = []; // Domains to skip image validation for (avoids CORS issues)
+    }
     render() {
         this.almaDThumbnailBaseURL = this.getAlmaDThumbnailBaseUrl();
         // Extract document metadata for accessibility
@@ -77,6 +81,7 @@ let PnxCard = PnxCard_1 = class PnxCard extends LitElement {
         checker.language = config.language;
         checker.scope = config.scope;
         checker.tab = config.tab;
+        checker.trustedDomains = config.trustedDomains || [];
         try {
             const thumbnailUrl = await checker.getThumbnailLinksStatic();
             return thumbnailUrl || null;
@@ -490,6 +495,11 @@ let PnxCard = PnxCard_1 = class PnxCard extends LitElement {
                 reject('');
                 return;
             }
+            // Check if URL is from a trusted domain - skip validation to avoid CORS issues
+            if (this.isFromTrustedDomain(imageUrl)) {
+                resolve(this.handleLink(imageUrl));
+                return;
+            }
             const image = new Image();
             image.onload = () => {
                 if (image.width > 1) {
@@ -504,6 +514,22 @@ let PnxCard = PnxCard_1 = class PnxCard extends LitElement {
             };
             image.src = this.handleLink(imageUrl);
         });
+    }
+    /**
+     * Check if a URL is from a trusted domain (skip validation to avoid CORS)
+     */
+    isFromTrustedDomain(url) {
+        if (!this.trustedDomains || this.trustedDomains.length === 0) {
+            return false;
+        }
+        try {
+            const parsedUrl = new URL(url);
+            return this.trustedDomains.some(domain => parsedUrl.hostname === domain ||
+                parsedUrl.hostname.endsWith('.' + domain));
+        }
+        catch {
+            return false;
+        }
     }
     handleLink(link) {
         let newLink = link;
@@ -544,6 +570,9 @@ __decorate([
 __decorate([
     property()
 ], PnxCard.prototype, "preloadedThumbnailUrl", void 0);
+__decorate([
+    property({ type: Array })
+], PnxCard.prototype, "trustedDomains", void 0);
 PnxCard = PnxCard_1 = __decorate([
     customElement('pnx-card')
 ], PnxCard);

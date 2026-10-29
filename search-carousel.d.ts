@@ -6,6 +6,7 @@ export declare class SearchCarousel extends LitElement {
     titleLink: string | undefined;
     desiredCardCount: number;
     parallelBatchSize: number;
+    trustedThumbnailDomains: string;
     private docsWithThumbnails;
     private isLoading;
     private viewId;

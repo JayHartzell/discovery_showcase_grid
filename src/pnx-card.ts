@@ -27,6 +27,8 @@ export class PnxCard extends LitElement {
     defaultThumbnailUrl: string | undefined;
     @property()
     preloadedThumbnailUrl: string | undefined; // Pre-validated thumbnail URL from search-carousel
+    @property({type: Array})
+    trustedDomains: string[] = []; // Domains to skip image validation for (avoids CORS issues)
     
     private almaDThumbnailBaseURL!: string;
 
@@ -64,6 +66,7 @@ export class PnxCard extends LitElement {
             <a  
                 href="${deeplink ? deeplink : '#'}" 
                 target="_blank" 
+                rel="noopener noreferrer"
                 aria-label="${linkAriaLabel}"
                 role="link">
                 ${until(imgPromise, imagePlaceHolder)}
@@ -100,6 +103,7 @@ export class PnxCard extends LitElement {
             language: string | null;
             scope: string | null;
             tab: string | null;
+            trustedDomains?: string[]; // Domains to skip validation for
         }
     ): Promise<string | null> {
         // Create a minimal instance just for thumbnail checking (not attached to DOM)
@@ -111,6 +115,7 @@ export class PnxCard extends LitElement {
         checker.language = config.language;
         checker.scope = config.scope;
         checker.tab = config.tab;
+        checker.trustedDomains = config.trustedDomains || [];
         
         try {
             const thumbnailUrl = await checker.getThumbnailLinksStatic();
@@ -206,9 +211,9 @@ export class PnxCard extends LitElement {
         const type = this.getDocumentType();
         
         if (author) {
-            return `View details for ${type} "${title}" by ${author}`;
+            return `View details for ${type} "${title}" by ${author} (opens in a new tab)`;
         } else {
-            return `View details for ${type} "${title}"`;
+            return `View details for ${type} "${title}" (opens in a new tab)`;
         }
     }
 
@@ -581,6 +586,12 @@ export class PnxCard extends LitElement {
                 return;
             }
 
+            // Check if URL is from a trusted domain - skip validation to avoid CORS issues
+            if (this.isFromTrustedDomain(imageUrl)) {
+                resolve(this.handleLink(imageUrl));
+                return;
+            }
+
             const image = new Image();
             image.onload = () => {
                 if (image.width > 1) {
@@ -596,6 +607,25 @@ export class PnxCard extends LitElement {
 
             image.src = this.handleLink(imageUrl);
         });
+    }
+
+    /**
+     * Check if a URL is from a trusted domain (skip validation to avoid CORS)
+     */
+    private isFromTrustedDomain(url: string): boolean {
+        if (!this.trustedDomains || this.trustedDomains.length === 0) {
+            return false;
+        }
+        
+        try {
+            const parsedUrl = new URL(url);
+            return this.trustedDomains.some(domain => 
+                parsedUrl.hostname === domain || 
+                parsedUrl.hostname.endsWith('.' + domain)
+            );
+        } catch {
+            return false;
+        }
     }
 
     private handleLink(link: string) {
